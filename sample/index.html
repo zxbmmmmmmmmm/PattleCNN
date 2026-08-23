@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Palette Lens · 取色对比</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18201c;
+      --muted: #647069;
+      --paper: #f4f1e9;
+      --surface: rgba(255, 255, 255, 0.78);
+      --line: rgba(24, 32, 28, 0.12);
+      --accent: #d95f3d;
+      --accent-dark: #a33c22;
+      --shadow: 0 24px 70px rgba(44, 47, 41, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 2%, rgba(225, 154, 111, 0.23), transparent 35rem),
+        radial-gradient(circle at 91% 12%, rgba(77, 130, 110, 0.20), transparent 33rem),
+        var(--paper);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    button, input { font: inherit; }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 38px 0 56px;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--accent-dark);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", serif;
+      font-size: clamp(34px, 6vw, 64px);
+      font-weight: 500;
+      letter-spacing: -0.045em;
+      line-height: 0.98;
+    }
+
+    .subtitle {
+      max-width: 390px;
+      margin: 0 0 4px;
+      color: var(--muted);
+      line-height: 1.7;
+      text-align: right;
+    }
+
+    .drop-zone {
+      position: relative;
+      display: grid;
+      min-height: 250px;
+      place-items: center;
+      overflow: hidden;
+      border: 1px dashed rgba(24, 32, 28, 0.35);
+      border-radius: 28px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      text-align: center;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .drop-zone::after {
+      position: absolute;
+      right: -70px;
+      bottom: -110px;
+      width: 270px;
+      height: 270px;
+      border-radius: 50%;
+      background: conic-gradient(from 90deg, #db6f4c, #e6b85c, #679c83, #6f80a6, #db6f4c);
+      content: "";
+      filter: blur(1px);
+      opacity: 0.2;
+    }
+
+    .drop-zone.dragging {
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.94);
+      transform: translateY(-2px);
+    }
+
+    .drop-content { position: relative; z-index: 1; padding: 34px; }
+
+    .drop-icon {
+      display: grid;
+      width: 54px;
+      height: 54px;
+      margin: 0 auto 16px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--paper);
+      font-size: 24px;
+    }
+
+    .drop-title { margin: 0 0 7px; font-size: 19px; font-weight: 700; }
+    .drop-hint { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+
+    .select-button {
+      padding: 10px 17px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+      transition: background 150ms ease, transform 150ms ease;
+    }
+
+    .select-button:hover { background: var(--accent-dark); transform: translateY(-1px); }
+    .select-button:focus-visible { outline: 3px solid rgba(217, 95, 61, 0.28); outline-offset: 3px; }
+
+    .status {
+      min-height: 24px;
+      margin: 14px 4px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status.error { color: #a62e27; }
+
+    .results[hidden] { display: none; }
+    .results { margin-top: 30px; }
+
+    .result-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+
+    h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 29px; font-weight: 500; }
+    .meta { color: var(--muted); font-size: 13px; text-align: right; }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .preview-card, .method-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.66);
+    }
+
+    .preview-frame {
+      display: grid;
+      aspect-ratio: 4 / 3;
+      place-items: center;
+      overflow: hidden;
+      background:
+        linear-gradient(45deg, rgba(24, 32, 28, 0.035) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(24, 32, 28, 0.035) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(24, 32, 28, 0.035) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(24, 32, 28, 0.035) 75%);
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      background-size: 16px 16px;
+    }
+
+    .preview-frame img { width: 100%; height: 100%; object-fit: contain; }
+    .preview-label { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; }
+    .preview-label strong { font-size: 14px; }
+    .preview-label span { color: var(--muted); font-size: 12px; }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .method-card { padding: 18px; }
+    .method-title { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+    .method-title h3 { margin: 0; font-size: 17px; }
+    .method-title span { color: var(--muted); font-size: 12px; }
+
+    .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+
+    .swatch {
+      min-width: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.62);
+      color: var(--ink);
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .swatch:focus-visible { outline: 3px solid rgba(24, 32, 28, 0.2); outline-offset: 2px; }
+    .color-block { display: block; height: 78px; }
+    .color-data { display: block; padding: 9px; }
+    .color-hex { display: block; font-size: 13px; font-weight: 800; }
+    .color-rgb { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; white-space: nowrap; }
+
+    .loading .drop-content { opacity: 0.44; }
+    .loading::before {
+      position: absolute;
+      z-index: 3;
+      top: 0;
+      left: 0;
+      width: 38%;
+      height: 3px;
+      background: var(--accent);
+      content: "";
+      animation: loading 1.1s ease-in-out infinite;
+    }
+
+    @keyframes loading {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(365%); }
+    }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 22px, 1180px); padding-top: 24px; }
+      header { display: block; }
+      .subtitle { margin-top: 14px; text-align: left; }
+      .preview-grid { grid-template-columns: 1fr; }
+      .preview-frame { aspect-ratio: 16 / 10; }
+      .palette-grid { grid-template-columns: 1fr; }
+      .swatches { grid-template-columns: repeat(2, 1fr); }
+      .color-block { height: 68px; }
+      .result-heading { display: block; }
+      .meta { margin-top: 7px; text-align: left; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">Palette Lens</p>
+        <h1>取色对比</h1>
+      </div>
+      <p class="subtitle">把同一张图片交给 KMeans 与训练好的 CNN，直观看两种方法选出的 4 个代表色。</p>
+    </header>
+
+    <section id="dropZone" class="drop-zone" aria-label="图片上传区域">
+      <div class="drop-content">
+        <div class="drop-icon" aria-hidden="true">↘</div>
+        <p class="drop-title">将图片拖到这里</p>
+        <p class="drop-hint">支持 JPG、PNG、WebP、BMP，最大 20 MB</p>
+        <button id="selectButton" class="select-button" type="button">选择图片</button>
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/bmp" hidden>
+      </div>
+    </section>
+    <p id="status" class="status" role="status" aria-live="polite">等待图片。</p>
+
+    <section id="results" class="results" hidden aria-live="polite">
+      <div class="result-heading">
+        <h2 id="fileName">对比结果</h2>
+        <div id="meta" class="meta"></div>
+      </div>
+
+      <div class="preview-grid">
+        <article class="preview-card">
+          <div class="preview-frame"><img id="originalPreview" alt="上传的原图"></div>
+          <div class="preview-label"><strong>原图</strong><span>输入</span></div>
+        </article>
+        <article class="preview-card">
+          <div class="preview-frame"><img id="kmeansPreview" alt="使用 KMeans 色板量化后的预览"></div>
+          <div class="preview-label"><strong>KMeans</strong><span id="kmeansTime"></span></div>
+        </article>
+        <article class="preview-card">
+          <div class="preview-frame"><img id="cnnPreview" alt="使用 CNN 色板量化后的预览"></div>
+          <div class="preview-label"><strong>CNN</strong><span id="cnnTime"></span></div>
+        </article>
+      </div>
+
+      <div class="palette-grid">
+        <article class="method-card">
+          <div class="method-title"><h3>KMeans 色板</h3><span>按亮度排序</span></div>
+          <div id="kmeansSwatches" class="swatches"></div>
+        </article>
+        <article class="method-card">
+          <div class="method-title"><h3>CNN 色板</h3><span>按亮度排序</span></div>
+          <div id="cnnSwatches" class="swatches"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const selectButton = document.getElementById("selectButton");
+    const statusLine = document.getElementById("status");
+    const results = document.getElementById("results");
+    const originalPreview = document.getElementById("originalPreview");
+
+    selectButton.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files.length) analyzeFile(fileInput.files[0]);
+    });
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.add("dragging");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.remove("dragging");
+      });
+    });
+
+    dropZone.addEventListener("drop", (event) => {
+      const file = event.dataTransfer.files[0];
+      if (file) analyzeFile(file);
+    });
+
+    function readAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("无法读取图片文件。"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function setStatus(message, isError = false) {
+      statusLine.textContent = message;
+      statusLine.classList.toggle("error", isError);
+    }
+
+    function renderSwatches(targetId, colors) {
+      const target = document.getElementById(targetId);
+      target.replaceChildren();
+      colors.forEach((color) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "swatch";
+        button.setAttribute("aria-label", `复制颜色 ${color.hex}`);
+
+        const block = document.createElement("span");
+        block.className = "color-block";
+        block.style.backgroundColor = color.hex;
+
+        const data = document.createElement("span");
+        data.className = "color-data";
+        const hex = document.createElement("span");
+        hex.className = "color-hex";
+        hex.textContent = color.hex;
+        const rgb = document.createElement("span");
+        rgb.className = "color-rgb";
+        rgb.textContent = `RGB ${color.rgb.join(", ")}`;
+        data.append(hex, rgb);
+        button.append(block, data);
+
+        button.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(color.hex);
+            setStatus(`已复制 ${color.hex}`);
+          } catch {
+            setStatus(`颜色值：${color.hex}`);
+          }
+        });
+        target.appendChild(button);
+      });
+    }
+
+    async function analyzeFile(file) {
+      if (!file.type.startsWith("image/")) {
+        setStatus("请拖入 JPG、PNG、WebP 或 BMP 图片。", true);
+        return;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        setStatus("图片不能超过 20 MB。", true);
+        return;
+      }
+
+      dropZone.classList.add("loading");
+      selectButton.disabled = true;
+      setStatus("正在运行 KMeans 与 CNN…");
+
+      try {
+        const imageData = await readAsDataUrl(file);
+        originalPreview.src = imageData;
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: imageData, name: file.name })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "图片分析失败。");
+
+        document.getElementById("fileName").textContent = file.name;
+        document.getElementById("meta").textContent =
+          `${payload.width} × ${payload.height} px · CNN 设备 ${payload.device}`;
+        document.getElementById("kmeansPreview").src = payload.kmeans.preview;
+        document.getElementById("cnnPreview").src = payload.cnn.preview;
+        document.getElementById("kmeansTime").textContent = `${payload.kmeans.elapsed_ms} ms`;
+        document.getElementById("cnnTime").textContent = `${payload.cnn.elapsed_ms} ms`;
+        renderSwatches("kmeansSwatches", payload.kmeans.colors);
+        renderSwatches("cnnSwatches", payload.cnn.colors);
+        results.hidden = false;
+        setStatus("分析完成。点击任意色块可复制 HEX 色值。");
+        results.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (error) {
+        setStatus(error.message || "图片分析失败。", true);
+      } finally {
+        dropZone.classList.remove("loading");
+        selectButton.disabled = false;
+        fileInput.value = "";
+      }
+    }
+  </script>
+</body>
+</html>
