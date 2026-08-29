@@ -40,6 +40,7 @@ data class AnnotationItem(
     val initialColors: List<RgbColor>,
     val colors: List<RgbColor>,
     val expiresInSeconds: Int,
+    val progress: AnnotationProgress,
     val uploadState: UploadState = UploadState.Idle,
     val uploadError: String? = null,
 )
@@ -362,7 +363,7 @@ class AppController(
         val task = api.claimTask()
         val image = loadImage(task.id, task.imageUrl)
         val colors = extractPalette(image)
-        return AnnotationItem(task.id, task.name, image, colors, colors, task.expireSeconds)
+        return AnnotationItem(task.id, task.name, image, colors, colors, task.expireSeconds, task.progress)
     }
 
     private fun submitIfNeeded(snapshot: AnnotationItem, retryFailed: Boolean = false): Job? {

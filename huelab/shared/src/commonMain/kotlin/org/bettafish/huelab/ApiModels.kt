@@ -42,6 +42,9 @@ data class ImageTaskResponse(
     val imageName: String,
     val url: String,
     @Serializable(with = FlexibleIntSerializer::class) val expireSeconds: Int,
+    @Serializable(with = FlexibleIntSerializer::class) val markedImageCount: Int,
+    @Serializable(with = FlexibleIntSerializer::class) val totalImageCount: Int,
+    @Serializable(with = FlexibleIntSerializer::class) val currentUserMarkedCount: Int,
 )
 
 @Serializable
@@ -71,7 +74,18 @@ data class TaskPayload(
     val name: String,
     val imageUrl: String,
     val expireSeconds: Int,
+    val progress: AnnotationProgress,
 )
+
+data class AnnotationProgress(
+    val currentUserMarkedCount: Int,
+    val markedImageCount: Int,
+    val totalImageCount: Int,
+) {
+    val fraction: Float
+        get() = if (totalImageCount <= 0) 0f
+        else markedImageCount.toFloat().div(totalImageCount).coerceIn(0f, 1f)
+}
 
 data class HistoryRecord(
     val imageId: String,

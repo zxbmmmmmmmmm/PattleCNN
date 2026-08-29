@@ -57,6 +57,7 @@ internal fun AnnotationScreen(
             title = item.name,
             subtitle = "第 ${state.index + 1} / ${state.items.size} 张 · ${item.uploadState.label} · ${item.expiresInSeconds / 60} 分钟",
             colors = item.colors,
+            progress = item.progress,
             selectedColor = state.selectedColor,
             onSelectColor = controller::selectAnnotationColor,
             onChangeColor = controller::updateAnnotationColor,

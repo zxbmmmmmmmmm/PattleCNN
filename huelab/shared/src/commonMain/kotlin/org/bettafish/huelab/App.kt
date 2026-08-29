@@ -245,6 +245,7 @@ internal fun FullscreenEditor(
     title: String,
     subtitle: String,
     colors: List<RgbColor>,
+    progress: AnnotationProgress? = null,
     selectedColor: Int,
     onSelectColor: (Int) -> Unit,
     onChangeColor: (RgbColor) -> Unit,
@@ -304,6 +305,7 @@ internal fun FullscreenEditor(
                     )
                     ColorEditor(
                         colors = colors,
+                        progress = progress,
                         selected = selectedColor,
                         onSelect = onSelectColor,
                         onChange = onChangeColor,
@@ -549,7 +551,7 @@ internal fun SampleableImage(
 
 @Composable
 private fun ColorEditor(
-    colors: List<RgbColor>, selected: Int, onSelect: (Int) -> Unit, onChange: (RgbColor) -> Unit,
+    colors: List<RgbColor>, progress: AnnotationProgress?, selected: Int, onSelect: (Int) -> Unit, onChange: (RgbColor) -> Unit,
     onReset: () -> Unit, contentColor: Color, modifier: Modifier, internallyScrollable: Boolean,
 ) {
     val current = colors.getOrNull(selected) ?: return
@@ -560,46 +562,65 @@ private fun ColorEditor(
     )
     val panelColor = if (contentColor == Color.Black) Color.White.copy(alpha = .46f) else Color.Black.copy(alpha = .42f)
     CompositionLocalProvider(LocalContentColor provides contentColor) {
-        Column(modifier.background(panelColor).then(contentModifier), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("四色调节", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                TextButton(onReset, colors = ButtonDefaults.textButtonColors(contentColor = contentColor)) { Text("恢复 KMeans") }
+        Column(modifier.background(panelColor)) {
+            progress?.let {
+                LinearProgressIndicator(
+                    progress = { it.fraction },
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = contentColor.copy(alpha = .18f),
+                )
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                colors.forEachIndexed { index, color ->
-                    Box(
-                        Modifier.weight(1f).height(58.dp).clip(RoundedCornerShape(12.dp)).background(color.composeColor())
-                            .then(if (selected == index) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)) else Modifier)
-                            .pointerInput(index) { detectTapGestures { onSelect(index) } },
-                        contentAlignment = Alignment.BottomCenter,
-                    ) {
-                        Text((index + 1).toString(), color = if (color.luminance > 150) Color.Black else Color.White, modifier = Modifier.padding(4.dp), fontWeight = FontWeight.Bold)
+            Column(contentModifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                progress?.let {
+                    Text(
+                        "我的标注 ${it.currentUserMarkedCount}  ·  已标注 ${it.markedImageCount}  ·  总图片 ${it.totalImageCount}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = contentColor.copy(alpha = .82f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("四色调节", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    TextButton(onReset, colors = ButtonDefaults.textButtonColors(contentColor = contentColor)) { Text("恢复 KMeans") }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    colors.forEachIndexed { index, color ->
+                        Box(
+                            Modifier.weight(1f).height(58.dp).clip(RoundedCornerShape(12.dp)).background(color.composeColor())
+                                .then(if (selected == index) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)) else Modifier)
+                                .pointerInput(index) { detectTapGestures { onSelect(index) } },
+                            contentAlignment = Alignment.BottomCenter,
+                        ) {
+                            Text((index + 1).toString(), color = if (color.luminance > 150) Color.Black else Color.White, modifier = Modifier.padding(4.dp), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
+                Text("色相  ${hsv.hue.toInt()}°")
+                Slider(hsv.hue, { onChange(RgbColor.fromHsv(it, hsv.saturation, hsv.value)) }, valueRange = 0f..360f)
+                Text("饱和度  ${(hsv.saturation * 100).toInt()}%")
+                Slider(hsv.saturation, { onChange(RgbColor.fromHsv(hsv.hue, it, hsv.value)) })
+                Text("明度  ${(hsv.value * 100).toInt()}%")
+                Slider(hsv.value, { onChange(RgbColor.fromHsv(hsv.hue, hsv.saturation, it)) })
+                OutlinedTextField(
+                    hexInput,
+                    { value -> hexInput = value; RgbColor.parse(value)?.let(onChange) },
+                    label = { Text("HEX") },
+                    isError = RgbColor.parse(hexInput) == null,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = contentColor,
+                        unfocusedTextColor = contentColor,
+                        focusedLabelColor = contentColor,
+                        unfocusedLabelColor = contentColor,
+                        focusedBorderColor = contentColor,
+                        unfocusedBorderColor = contentColor.copy(alpha = .7f),
+                        cursorColor = contentColor,
+                    ),
+                )
             }
-            Text("色相  ${hsv.hue.toInt()}°")
-            Slider(hsv.hue, { onChange(RgbColor.fromHsv(it, hsv.saturation, hsv.value)) }, valueRange = 0f..360f)
-            Text("饱和度  ${(hsv.saturation * 100).toInt()}%")
-            Slider(hsv.saturation, { onChange(RgbColor.fromHsv(hsv.hue, it, hsv.value)) })
-            Text("明度  ${(hsv.value * 100).toInt()}%")
-            Slider(hsv.value, { onChange(RgbColor.fromHsv(hsv.hue, hsv.saturation, it)) })
-            OutlinedTextField(
-                hexInput,
-                { value -> hexInput = value; RgbColor.parse(value)?.let(onChange) },
-                label = { Text("HEX") },
-                isError = RgbColor.parse(hexInput) == null,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = contentColor,
-                    unfocusedTextColor = contentColor,
-                    focusedLabelColor = contentColor,
-                    unfocusedLabelColor = contentColor,
-                    focusedBorderColor = contentColor,
-                    unfocusedBorderColor = contentColor.copy(alpha = .7f),
-                    cursorColor = contentColor,
-                ),
-            )
         }
     }
 }

@@ -22,6 +22,12 @@ class ApiClientTest {
         val json = Json
         assertEquals(60, json.decodeFromString<TokenResponse>("""{"accessToken":"a","refreshToken":"r","expiresIn":"60"}""").expiresIn)
         assertEquals(60, json.decodeFromString<TokenResponse>("""{"accessToken":"a","refreshToken":"r","expiresIn":60}""").expiresIn)
+        val task = json.decodeFromString<ImageTaskResponse>(
+            """{"imageId":"id","imageName":"a.jpg","url":"/a","expireSeconds":"600","markedImageCount":"25","totalImageCount":100,"currentUserMarkedCount":"7"}""",
+        )
+        assertEquals(25, task.markedImageCount)
+        assertEquals(100, task.totalImageCount)
+        assertEquals(7, task.currentUserMarkedCount)
     }
 
     @Test
@@ -43,7 +49,7 @@ class ApiClientTest {
                     assertTrue(request.headers[HttpHeaders.Authorization]?.startsWith("Bearer access-") == true)
                     if (taskCalls == 1) respondError(HttpStatusCode.Unauthorized)
                     else respond(
-                        """{"imageId":"id-1","imageName":"cover.jpg","url":"/api/images/id-1/content","expireSeconds":"600"}""",
+                        """{"imageId":"id-1","imageName":"cover.jpg","url":"/api/images/id-1/content","expireSeconds":"600","markedImageCount":25,"totalImageCount":100,"currentUserMarkedCount":7}""",
                         headers = jsonHeaders,
                     )
                 }
@@ -54,6 +60,8 @@ class ApiClientTest {
         assertTrue(api.restoreSession())
         val task = api.claimTask()
         assertEquals("id-1", task.id)
+        assertEquals(7, task.progress.currentUserMarkedCount)
+        assertEquals(.25f, task.progress.fraction)
         assertEquals(2, refreshCalls)
         assertEquals("refresh-3", store.value)
     }

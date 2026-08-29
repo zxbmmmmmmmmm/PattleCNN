@@ -76,7 +76,17 @@ class HueLabApi(
         }.bodyOrThrow<ImageTaskResponse>()
         val imageUrl = if (dto.url.startsWith("http://") || dto.url.startsWith("https://")) dto.url
         else "$baseUrl/${dto.url.trimStart('/')}"
-        return TaskPayload(dto.imageId, dto.imageName, imageUrl, dto.expireSeconds)
+        return TaskPayload(
+            id = dto.imageId,
+            name = dto.imageName,
+            imageUrl = imageUrl,
+            expireSeconds = dto.expireSeconds,
+            progress = AnnotationProgress(
+                currentUserMarkedCount = dto.currentUserMarkedCount,
+                markedImageCount = dto.markedImageCount,
+                totalImageCount = dto.totalImageCount,
+            ),
+        )
     }
 
     suspend fun downloadImage(imageId: String, preferredUrl: String? = null): ByteArray {
