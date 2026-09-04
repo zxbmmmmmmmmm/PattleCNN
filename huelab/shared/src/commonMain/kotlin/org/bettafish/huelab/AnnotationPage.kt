@@ -14,10 +14,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -39,11 +41,13 @@ internal fun AnnotationScreen(
     )
     var pickingColor by remember { mutableStateOf(false) }
     var previewHeld by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.collectLatest(controller::settleGalleryPage)
     }
+    // Keep picking mode active while moving through the gallery; only the transient
+    // long-press preview state needs to be cleared for the newly selected image.
     LaunchedEffect(state.index) {
-        pickingColor = false
         previewHeld = false
     }
     when {
@@ -74,6 +78,15 @@ internal fun AnnotationScreen(
             controlsVisible = !previewHeld,
             pickingColor = pickingColor,
             onTogglePicking = { pickingColor = !pickingColor },
+            onNavigateImage = { direction ->
+                val target = (pagerState.currentPage + direction).coerceIn(0, pageCount - 1)
+                if (target == pagerState.currentPage) {
+                    false
+                } else {
+                    coroutineScope.launch { pagerState.animateScrollToPage(target) }
+                    true
+                }
+            },
         ) { paneModifier, imageScale ->
             PreviewColumn(
                 state,

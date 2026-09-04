@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -30,8 +31,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -260,6 +268,7 @@ internal fun FullscreenEditor(
     error: String? = null,
     onRetry: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    onNavigateImage: (Int) -> Boolean = { false },
     controlsVisible: Boolean = true,
     pickingColor: Boolean,
     onTogglePicking: () -> Unit,
@@ -267,12 +276,38 @@ internal fun FullscreenEditor(
     imagePane: @Composable (Modifier, Float) -> Unit,
 ) {
     val contentColor = paletteContentColor(colors)
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
     CompositionLocalProvider(LocalContentColor provides contentColor) {
-        Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .focusRequester(focusRequester)
+                .focusable()
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    when (event.key) {
+                        Key.DirectionLeft -> onNavigateImage(-1)
+                        Key.DirectionRight -> onNavigateImage(1)
+                        else -> false
+                    }
+                },
+        ) {
             PlatformShaderPreview(colors, shaderSource, Modifier.fillMaxSize(), onShaderResult)
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val topBarHeight = 64.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
                 val imageHeight = (maxHeight - topBarHeight) * .52f
+                // Keep controls comfortably readable on desktop-sized windows while
+                // retaining the full-width layout on phones and narrow windows.
+                val isWideLayout = maxWidth >= 600.dp
+                val controlPanelModifier = Modifier
+                    .widthIn(max = 480.dp)
+                    .fillMaxWidth()
+                val imagePaneModifier = if (isWideLayout) {
+                    controlPanelModifier.align(Alignment.TopEnd)
+                } else {
+                    Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                }
                 val imageScale by animateFloatAsState(
                     targetValue = if (pickingColor && controlsVisible) 1f else .5f,
                     animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
@@ -281,10 +316,8 @@ internal fun FullscreenEditor(
                 // Keep this invocation stable while long-press preview mode toggles so its
                 // pointer gesture remains alive until the press is released.
                 imagePane(
-                    Modifier
-                        .align(Alignment.TopCenter)
+                    imagePaneModifier
                         .padding(top = topBarHeight)
-                        .fillMaxWidth()
                         .height(imageHeight),
                     imageScale,
                 )
@@ -301,7 +334,7 @@ internal fun FullscreenEditor(
                         onLogout = onLogout,
                         onBack = onBack,
                         toolbarAction = toolbarAction,
-                        modifier = Modifier.align(Alignment.TopCenter),
+                        modifier = controlPanelModifier.align(Alignment.TopEnd),
                     )
                     ColorEditor(
                         colors = colors,
@@ -311,9 +344,8 @@ internal fun FullscreenEditor(
                         onChange = onChangeColor,
                         onReset = onResetPalette,
                         contentColor = contentColor,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
+                        modifier = controlPanelModifier
+                            .align(Alignment.BottomEnd)
                             .fillMaxHeight(.42f)
                             .navigationBarsPadding(),
                         internallyScrollable = true,
@@ -321,7 +353,9 @@ internal fun FullscreenEditor(
                     val visibleError = error?.takeIf { onRetry != null } ?: shaderError
                     visibleError?.let {
                         Surface(
-                            modifier = Modifier.align(Alignment.TopCenter).padding(top = topBarHeight),
+                            modifier = controlPanelModifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = topBarHeight),
                             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .94f),
                         ) {
                             if (error != null && onRetry != null) ErrorBanner(error, onRetry)
