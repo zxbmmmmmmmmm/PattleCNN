@@ -47,6 +47,12 @@ float gradientNoise(float2 point) {
     return 0.5 + 0.5 * value;
 }
 
+// A stable sub-pixel dither hides 8-bit color quantization bands on large
+// surfaces without introducing time-dependent shimmer.
+float interleavedGradientNoise(float2 pixel) {
+    return fract(52.9829189 * fract(dot(pixel, float2(0.06711056, 0.00583715))));
+}
+
 float3 paletteColor(int index) {
     if (index == 0) return float3(color0.rgb);
     if (index == 1) return float3(color1.rgb);
@@ -82,7 +88,8 @@ half4 main(float2 fragCoord) {
         smoothstep(-0.3, 0.2, rotatedX)
     );
     float3 result = mix(firstLayer, secondLayer, smoothstep(0.5, -0.3, transformed.y));
-    return half4(result, 1.0);
+    float dither = (interleavedGradientNoise(fragCoord) - 0.5) / 255.0;
+    return half4(clamp(result + dither, 0.0, 1.0), 1.0);
 }
 """
 
