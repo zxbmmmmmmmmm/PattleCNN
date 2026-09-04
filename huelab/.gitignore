@@ -6,6 +6,14 @@ xcuserdata
 !src/**/build/
 local.properties
 .idea
+# Keep the shared desktop launcher available after importing the project in IntelliJ IDEA.
+!.idea/
+.idea/*
+!.idea/runConfigurations/
+!.idea/runConfigurations/*
+# Ignore IDE metadata in nested modules as well.
+*/.idea
+*/.idea/*
 .DS_Store
 captures
 .externalNativeBuild

@@ -1,6 +1,10 @@
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,kotlin
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,python,kotlin
 
+/Albums
+*.pth
+*.pt
+
 ### Kotlin ###
 # Compiled class file
 *.class

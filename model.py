@@ -21,12 +21,19 @@ class PattleCNN(nn.Module):
       nn.Conv2d(64,128,kernel_size=3,padding=1),
       nn.ReLU(),
       nn.MaxPool2d(2),
-      nn.Conv2d(128,128,kernel_size=3,padding=1),
+
+      nn.Conv2d(128,256,kernel_size=3,padding=1),
+      nn.ReLU(),
+      nn.MaxPool2d(2),
+
+      nn.Conv2d(256,256,kernel_size=3,padding=1),
       nn.ReLU(),
       nn.AdaptiveAvgPool2d(1)
     )
     self.head = nn.Sequential(
       nn.Flatten(),
+      nn.Linear(256,128),
+      nn.ReLU(),
       nn.Linear(128,64),
       nn.ReLU(),
       nn.Linear(64,12),

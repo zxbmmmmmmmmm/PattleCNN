@@ -1,6 +1,6 @@
 # KMeans / CNN 取色对比工具
 
-这是一个本地运行的可视化页面。拖入图片后，程序会分别用 KMeans 和项目根目录中的 `model.pth` 提取 4 个代表色，同时显示色板量化预览、HEX/RGB 色值和单次推理耗时。
+这是一个本地运行的可视化页面。拖入图片后，程序会分别用 KMeans 和项目根目录中的 `model.pth` 提取 4 个代表色，同时显示色板量化预览、HEX/RGB 色值、单次推理耗时，以及使用同一份 Shader 的 KMeans/CNN 动态效果对比。
 
 ## 运行
 
@@ -31,3 +31,4 @@ python sample/app.py --port 8000
 - KMeans 使用 4 个聚类、`n_init=5`、`random_state=42`，与 `data.py` 保持一致。
 - 两组颜色都按感知亮度从暗到亮排列。
 - 量化预览会把每个像素替换为对应色板中欧氏距离最近的颜色，仅用于直观比较色板覆盖效果。
+- Shader 对比使用浏览器 WebGL2 渲染；默认源码与 HueLab 内置 SkSL/AGSL shader 一致。展开“编辑 Shader 源码”即可修改并应用，源码会在浏览器端转换为 GLSL ES 3.00，不会上传到服务器。

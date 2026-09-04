@@ -16,6 +16,8 @@ HueLab 是用于 PattleCNN 四色训练数据的 Compose Multiplatform 标注客
 
 ## 运行
 
+在 IntelliJ IDEA 中导入 `huelab` 目录后，运行配置列表会提供 **HueLab Desktop**，直接运行即可启动桌面客户端。该配置等价于执行 `:desktopApp:run`。
+
 项目默认连接：
 
 ```text
