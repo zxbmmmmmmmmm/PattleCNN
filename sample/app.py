@@ -112,7 +112,11 @@ class PaletteAnalyzer:
         )
         cnn_started = time.perf_counter()
         with torch.inference_mode():
-            cnn_colors = self.model(cnn_input)[0].clamp(0, 1).cpu().numpy()
+            cnn_anchors = torch.from_numpy(kmeans_colors).unsqueeze(0).to(
+                self.device,
+                dtype=torch.float32,
+            )
+            cnn_colors = self.model(cnn_input, cnn_anchors)[0].cpu().numpy()
         if self.device.type == "cuda":
             torch.cuda.synchronize(self.device)
         cnn_ms = (time.perf_counter() - cnn_started) * 1000

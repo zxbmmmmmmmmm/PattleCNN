@@ -75,6 +75,15 @@ def extract_pattle(image: Image.Image, num_colors: int = 4) -> torch.Tensor:
   return torch.tensor(colours[np.argsort(brightness)], dtype=torch.float32)
 
 
+def _sort_palette_by_brightness(colours: torch.Tensor) -> torch.Tensor:
+  brightness = (
+    colours[:, 0] * 0.2126
+    + colours[:, 1] * 0.7152
+    + colours[:, 2] * 0.0722
+  )
+  return colours[torch.argsort(brightness)]
+
+
 def load_colour_labels(csv_path: Path) -> dict[str, torch.Tensor]:
   """Load ``album name -> (4, 3)`` colour tensors from ``colors.csv``."""
   csv_path = Path(csv_path)
@@ -100,7 +109,9 @@ def load_colour_labels(csv_path: Path) -> dict[str, torch.Tensor]:
         _parse_hex_colour(row.get(column, ""), row_number=row_number, column=column)
         for column in colour_columns
       ]
-      labels[key] = torch.tensor(colours, dtype=torch.float32)
+      labels[key] = _sort_palette_by_brightness(
+        torch.tensor(colours, dtype=torch.float32)
+      )
   if not labels:
     raise ValueError(f"No colour annotations found in {csv_path}.")
   return labels
@@ -140,6 +151,7 @@ def build_dataset(
   )
   images: list[torch.Tensor] = []
   pattles: list[torch.Tensor] = []
+  anchors: list[torch.Tensor] = []
   filenames: list[str] = []
   matched_names: set[str] = set()
   kmeans_count = 0
@@ -163,6 +175,7 @@ def build_dataset(
         for variant, augmented in variants:
           images.append(_image_tensor(augmented))
           pattles.append(target.clone())
+          anchors.append(extract_pattle(augmented))
           filenames.append(
             path.name if variant == "original"
             else f"{path.stem}__{variant}{path.suffix}"
@@ -179,7 +192,12 @@ def build_dataset(
     )
   output_path.parent.mkdir(parents=True, exist_ok=True)
   torch.save(
-    {"images": torch.stack(images), "pattles": torch.stack(pattles), "filenames": filenames},
+    {
+      "images": torch.stack(images),
+      "pattles": torch.stack(pattles),
+      "anchors": torch.stack(anchors),
+      "filenames": filenames,
+    },
     output_path,
   )
   missing = len(labels) - len(matched_names)
