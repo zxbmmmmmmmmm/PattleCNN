@@ -16,8 +16,9 @@ from tqdm import tqdm
 
 
 DEFAULT_INPUT_DIR = Path("Albums")
-DEFAULT_COLORS_CSV = Path("colors.csv")
+DEFAULT_COLORS_CSV = Path("export.csv")
 DEFAULT_OUTPUT = Path("dataset.pt")
+DEFAULT_USER = "Betta_Fish"
 IMAGE_SIZE = (128, 128)
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 # Backwards-compatible name for callers that used the old script constant.
@@ -84,11 +85,13 @@ def load_colour_labels(csv_path: Path) -> dict[str, torch.Tensor]:
         f"{csv_path} must contain an album-name column and four colour columns."
       )
     name_column = reader.fieldnames[0]
-    colour_columns = reader.fieldnames[1:5]
+    user_name_column = reader.fieldnames[1]
+    colour_columns = reader.fieldnames[2:6]
     labels: dict[str, torch.Tensor] = {}
     for row_number, row in enumerate(reader, start=2):
       raw_name = (row.get(name_column) or "").strip()
-      if not raw_name:
+      user_name = (row.get(user_name_column) or "").strip()
+      if not raw_name or (DEFAULT_USER != None and user_name != DEFAULT_USER):
         continue
       key = _normalise_name(raw_name)
       if key in labels:
@@ -151,6 +154,7 @@ def build_dataset(
         if target is None:
           # Unannotated images are included once with a palette inferred from
           # the original image.  Do not augment these pseudo-labelled samples.
+          continue
           variants = (("original", base),)
           target = extract_pattle(base)
         else:
