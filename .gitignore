@@ -221,4 +221,6 @@ pyrightconfig.json
 .history
 .ionide
 
-# End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,kotlin
+# End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,kotlin# pixi environments
+.pixi/*
+!.pixi/config.toml
