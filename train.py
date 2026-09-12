@@ -10,7 +10,7 @@ from tqdm import tqdm
 data = torch.load("dataset.pt",weights_only=False)
 if "anchors" not in data:
   raise RuntimeError(
-    "dataset.pt 缺少 anchors；请先运行 python data.py 重新构建数据集。"
+    "dataset.pt is missing anchors; please run python data.py to rebuild the dataset."
   )
 dataset = TensorDataset(
   data["images"],
@@ -23,6 +23,9 @@ loader = DataLoader(
   batch_size=64,
   shuffle=True
 )
+
+if not torch.cuda.is_available():
+  print("Warning: CUDA is not available.")
 
 device = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
