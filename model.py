@@ -42,49 +42,104 @@ def oklab_to_rgb(oklab: torch.Tensor) -> torch.Tensor:
   )
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            padding=1
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+        self.conv2 = nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size=3,
+            padding=1
+        )
+
+        if in_channels != out_channels:
+            self.shortcut = nn.Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size=1
+            )
+        else:
+            self.shortcut = nn.Identity()
+
+    def forward(self, x):
+        identity = self.shortcut(x)
+
+        out = self.conv1(x)
+        out = self.relu(out)
+        out = self.conv2(out)
+
+        out = out + identity
+        out = self.relu(out)
+
+        return out
+
+
 class PattleCNN(nn.Module):
-  def __init__(self):
-    super().__init__()
-    self.features = nn.Sequential(
-      nn.Conv2d(
-        in_channels=3,
-        out_channels=32,
-        kernel_size=3,
-        padding=1
-      ),
-      nn.ReLU(),
-      nn.MaxPool2d(2),
+    def __init__(self):
+        super().__init__()
 
-      nn.Conv2d(32,64,kernel_size=3,padding=1),
-      nn.ReLU(),
-      nn.MaxPool2d(2),
+        self.features = nn.Sequential(
+            # 3 → 32
+            ResidualBlock(3, 32),
+            nn.MaxPool2d(2),
 
-      nn.Conv2d(64,128,kernel_size=3,padding=1),
-      nn.ReLU(),
-      nn.MaxPool2d(2),
+            # 32 → 64
+            ResidualBlock(32, 64),
+            nn.MaxPool2d(2),
 
-      nn.Conv2d(128,256,kernel_size=3,padding=1),
-      nn.ReLU(),
-      nn.MaxPool2d(2),
+            # 64 → 128
+            ResidualBlock(64, 128),
+            nn.MaxPool2d(2),
 
-      nn.Conv2d(256,256,kernel_size=3,padding=1),
-      nn.ReLU(),
-      nn.AdaptiveAvgPool2d(1)
-    )
-    self.head = nn.Sequential(
-      nn.Flatten(),
-      nn.Linear(256,128),
-      nn.ReLU(),
-      nn.Linear(128,64),
-      nn.ReLU(),
-      nn.Linear(64,16),
-    )
-  def forward(self, x: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
-    """Generate an RGB palette by adapting four image-derived anchor colours."""
-    x = self.features(x)
-    adjustments = self.head(x).view(-1, 4, 4)
-    delta = torch.tanh(adjustments[..., :3])
-    delta = delta * adjustments.new_tensor((0.20, 0.12, 0.12))
-    strength = torch.sigmoid(adjustments[..., 3:])
-    palette_oklab = rgb_to_oklab(anchors) + strength * delta
-    return oklab_to_rgb(palette_oklab).clamp(0, 1)
+            # 128 → 256
+            ResidualBlock(128, 256),
+            nn.MaxPool2d(2),
+
+            # 256 → 256
+            ResidualBlock(256, 256),
+
+            nn.AdaptiveAvgPool2d(1)
+        )
+
+        self.head = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 16),
+        )
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        anchors: torch.Tensor
+    ) -> torch.Tensor:
+
+        x = self.features(x)
+
+        adjustments = self.head(x).view(-1, 4, 4)
+
+        delta = torch.tanh(adjustments[..., :3])
+        delta = delta * adjustments.new_tensor(
+            (0.20, 0.12, 0.12)
+        )
+
+        strength = torch.sigmoid(adjustments[..., 3:])
+
+        palette_oklab = (
+            rgb_to_oklab(anchors)
+            + strength * delta
+        )
+
+        return oklab_to_rgb(palette_oklab).clamp(0, 1)
